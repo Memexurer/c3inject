@@ -1,0 +1,5 @@
+rootProject.name = 'c3inject'
+include 'runner'
+include 'transformer'
+include 'helfy-jvm'
+
