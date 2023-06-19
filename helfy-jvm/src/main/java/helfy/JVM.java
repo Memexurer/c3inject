@@ -46,6 +46,7 @@ public class JVM {
 
             Set<Field> fields = structs.get(typeName);
             if (fields == null) structs.put(typeName, fields = new TreeSet<>());
+
             fields.add(new Field(fieldName, typeString, offset, isStatic));
         }
 
@@ -73,6 +74,7 @@ public class JVM {
             int size = getInt(entry + sizeOffset);
 
             Set<Field> fields = structs.get(typeName);
+
             types.put(typeName, new Type(typeName, superclassName, size, isOop, isInt, isUnsigned, fields));
         }
     }

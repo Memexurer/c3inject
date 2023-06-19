@@ -31,6 +31,19 @@ java {
     }
 }
 
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'ghp.transformer.Main'
+        )
+    }
+
+    from {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
 test {
     useJUnitPlatform()
 }
